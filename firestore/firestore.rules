@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isClubMember(clubId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid));
+    }
+
+    function isClubAdmin(clubId) {
+      return isClubMember(clubId) &&
+        get(/databases/$(database)/documents/clubs/$(clubId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId);
+      allow create: if isSelf(userId);
+      allow update: if isSelf(userId) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'displayName',
+          'clubIds',
+          'activeClubId',
+          'fcmTokens'
+        ]);
+      allow delete: if false;
+    }
+
+    match /clubs/{clubId} {
+      allow read: if isClubMember(clubId);
+      allow create: if signedIn();
+      allow update, delete: if isClubAdmin(clubId);
+    }
+
+    match /clubs/{clubId}/members/{userId} {
+      allow read: if isClubMember(clubId);
+      allow create: if isClubAdmin(clubId) || (
+        signedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.role == 'admin' &&
+        get(/databases/$(database)/documents/clubs/$(clubId)).data.createdBy == request.auth.uid
+      );
+      allow update, delete: if isClubAdmin(clubId);
+    }
+
+    match /clubs/{clubId}/competitions/{competitionId} {
+      allow read: if isClubMember(clubId);
+      allow create, update, delete: if isClubAdmin(clubId);
+    }
+
+    match /games/{gameId} {
+      allow read: if isClubMember(resource.data.clubId);
+      allow write: if false;
+    }
+
+    match /gameVersions/{versionId} {
+      allow read: if isClubMember(resource.data.clubId);
+      allow write: if false;
+    }
+
+    match /editProposals/{proposalId} {
+      allow read: if isClubMember(resource.data.clubId);
+      allow write: if false;
+    }
+
+    match /validationRequests/{requestId} {
+      allow read: if isSelf(resource.data.userId);
+      allow write: if false;
+    }
+
+    match /tournamentRounds/{roundId} {
+      allow read: if isClubMember(resource.data.clubId);
+      allow write: if false;
+    }
+
+    match /competitionLeaderboardEntries/{entryId} {
+      allow read: if isClubMember(resource.data.clubId);
+      allow write: if false;
+    }
+
+    match /globalLeaderboardEntries/{entryId} {
+      allow read: if isClubMember(resource.data.clubId);
+      allow write: if false;
+    }
+  }
+}

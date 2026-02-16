@@ -1,0 +1,9 @@
+{
+  "name": "Mahjong Club",
+  "short_name": "Mahjong",
+  "start_url": "/club",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e3a8a",
+  "icons": []
+}

@@ -1,0 +1,20 @@
+{
+  "name": "mahjong-club-app",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "functions"
+  ],
+  "scripts": {
+    "build": "npm run build -w apps/web && npm run build -w functions",
+    "build:functions": "npm run build -w functions",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:functions": "npm run seed:local:exec && npm run serve -w functions",
+    "test": "npm run test -w functions",
+    "seed:local": "npm run seed:local -w functions",
+    "seed:local:exec": "npx firebase-tools emulators:exec --project demo-mahjong-club --only firestore,auth --export-on-exit=.emulator-seed \"npm run seed:local -w functions\""
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.35.0"
+  }
+}
