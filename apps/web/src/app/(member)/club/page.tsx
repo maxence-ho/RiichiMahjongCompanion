@@ -20,11 +20,11 @@ interface ClubOption {
 }
 
 export default function ClubPage() {
-  const { user, profile } = useAuthContext();
+  const { user, profile, activeClubRole } = useAuthContext();
   const [competitions, setCompetitions] = useState<CompetitionCard[]>([]);
   const [pending, setPending] = useState(0);
   const [clubOptions, setClubOptions] = useState<ClubOption[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = activeClubRole === 'admin';
 
   useEffect(() => {
     if (!profile?.clubIds?.length) {
@@ -48,15 +48,13 @@ export default function ClubPage() {
     if (!clubId || !user) {
       setCompetitions([]);
       setPending(0);
-      setIsAdmin(false);
       return;
     }
 
     const load = async () => {
-      const [competitionSnapshot, inboxSnapshot, memberSnapshot] = await Promise.all([
+      const [competitionSnapshot, inboxSnapshot] = await Promise.all([
         getDocs(query(collection(db, `clubs/${clubId}/competitions`), where('status', '==', 'active'))),
-        getDocs(query(collection(db, 'validationRequests'), where('userId', '==', user.uid), where('clubId', '==', clubId))),
-        getDoc(doc(db, `clubs/${clubId}/members/${user.uid}`))
+        getDocs(query(collection(db, 'validationRequests'), where('userId', '==', user.uid), where('clubId', '==', clubId)))
       ]);
 
       setCompetitions(
@@ -68,7 +66,6 @@ export default function ClubPage() {
 
       const pendingCount = inboxSnapshot.docs.filter((docSnap) => docSnap.data().status === 'pending').length;
       setPending(pendingCount);
-      setIsAdmin(memberSnapshot.data()?.role === 'admin');
     };
 
     load().catch(console.error);

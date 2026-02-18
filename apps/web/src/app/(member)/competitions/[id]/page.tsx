@@ -81,7 +81,7 @@ function tournamentTabClass(active: boolean) {
 
 export default function CompetitionDetailPage() {
   const params = useParams<{ id: string }>();
-  const { profile, user } = useAuthContext();
+  const { profile, user, activeClubRole } = useAuthContext();
 
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [clubDefaultRules, setClubDefaultRules] = useState<Rules>(defaultRules);
@@ -92,7 +92,6 @@ export default function CompetitionDetailPage() {
     Record<string, { participants: string[]; finalScores: Record<string, number> }>
   >({});
   const [rounds, setRounds] = useState<TournamentRound[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isSubmittingRound, setIsSubmittingRound] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [tableScores, setTableScores] = useState<Record<string, Record<string, number>>>({});
@@ -107,14 +106,12 @@ export default function CompetitionDetailPage() {
       setEntries([]);
       setGames([]);
       setRounds([]);
-      setIsAdmin(false);
       return;
     }
 
     const [
       competitionSnapshot,
       clubSnapshot,
-      memberSnapshot,
       membersSnapshot,
       leaderboardSnapshot,
       gamesSnapshot,
@@ -123,7 +120,6 @@ export default function CompetitionDetailPage() {
       await Promise.all([
         getDoc(doc(db, `clubs/${clubId}/competitions/${competitionId}`)),
         getDoc(doc(db, `clubs/${clubId}`)),
-        getDoc(doc(db, `clubs/${clubId}/members/${user.uid}`)),
         getDocs(collection(db, `clubs/${clubId}/members`)),
         getDocs(
           query(
@@ -160,8 +156,6 @@ export default function CompetitionDetailPage() {
 
     const clubRules = (clubSnapshot.data()?.defaultRules as Rules | undefined) ?? defaultRules;
     setClubDefaultRules(clubRules);
-
-    setIsAdmin(memberSnapshot.data()?.role === 'admin');
 
     const mappedNames: Record<string, string> = {};
     for (const memberDoc of membersSnapshot.docs) {
@@ -263,6 +257,7 @@ export default function CompetitionDetailPage() {
   const scheduledRounds = rounds.filter((round) => round.status === 'scheduled').length;
   const pairingAlgorithm = competition?.tournamentConfig?.pairingAlgorithm ?? 'performance_swiss';
   const isPrecomputedTournament = pairingAlgorithm === 'precomputed_min_repeats';
+  const isAdmin = activeClubRole === 'admin';
 
   const onCreateNextRound = async () => {
     if (!profile?.activeClubId || !competitionId) {

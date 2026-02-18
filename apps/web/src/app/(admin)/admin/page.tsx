@@ -4,13 +4,11 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   addDoc,
   collection,
-  doc,
-  getDoc,
   getDocs,
   serverTimestamp
 } from 'firebase/firestore';
 
-import { RequireAuth } from '@/components/RequireAuth';
+import { RequireRole } from '@/components/RequireRole';
 import { useAuthContext } from '@/features/auth/AuthProvider';
 import { adminUpsertClubMember, createTournamentRoundPairings } from '@/lib/callables';
 import { registerPushToken } from '@/lib/firebaseMessaging';
@@ -57,7 +55,7 @@ const defaultRuleValues = {
 };
 
 export default function AdminPage() {
-  const { user, profile } = useAuthContext();
+  const { user, profile, activeClubRole } = useAuthContext();
   const [items, setItems] = useState<CompetitionAdmin[]>([]);
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [name, setName] = useState('');
@@ -70,7 +68,7 @@ export default function AdminPage() {
   const [selectedTournamentPlayers, setSelectedTournamentPlayers] = useState<string[]>([]);
   const [ruleValues, setRuleValues] = useState(defaultRuleValues);
   const [message, setMessage] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = activeClubRole === 'admin';
 
   const [newMemberId, setNewMemberId] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
@@ -82,16 +80,14 @@ export default function AdminPage() {
 
   const load = async () => {
     const clubId = profile?.activeClubId;
-    if (!clubId || !user) {
+    if (!clubId || !user || !isAdmin) {
       setItems([]);
       setMembers([]);
-      setIsAdmin(false);
       return;
     }
 
-    const [competitionSnapshot, memberSnapshot, membersSnapshot] = await Promise.all([
+    const [competitionSnapshot, membersSnapshot] = await Promise.all([
       getDocs(collection(db, `clubs/${clubId}/competitions`)),
-      getDoc(doc(db, `clubs/${clubId}/members/${user.uid}`)),
       getDocs(collection(db, `clubs/${clubId}/members`))
     ]);
 
@@ -108,7 +104,6 @@ export default function AdminPage() {
       displayNameCache: docSnap.data().displayNameCache
     })) as MemberItem[];
     setMembers(allMembers);
-    setIsAdmin(memberSnapshot.data()?.role === 'admin');
 
     if (selectedTournamentPlayers.length === 0) {
       setSelectedTournamentPlayers(allMembers.map((member) => member.id));
@@ -117,7 +112,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     load().catch((error) => setMessage((error as { message?: string }).message ?? 'Failed to load admin data.'));
-  }, [profile?.activeClubId, user]);
+  }, [isAdmin, profile?.activeClubId, user]);
 
   const onCreateCompetition = async (event: FormEvent) => {
     event.preventDefault();
@@ -260,13 +255,12 @@ export default function AdminPage() {
   };
 
   return (
-    <RequireAuth>
+    <RequireRole role="admin" fallbackHref="/club">
       <section className="space-y-3">
         <div className="rounded-lg border border-slate-200 bg-white p-4">
           <h2 className="text-lg font-semibold">Admin</h2>
           <p className="mt-1 text-sm text-slate-600">Manage competitions, rules, members and notifications.</p>
           {message ? <p className="mt-2 text-sm text-slate-700">{message}</p> : null}
-          {!isAdmin ? <p className="mt-2 text-sm text-rose-700">Access denied: admin role required.</p> : null}
           <button className="mt-3 rounded border border-slate-300 px-3 py-2 text-sm" onClick={onEnablePush}>
             Enable push notifications
           </button>
@@ -719,6 +713,6 @@ export default function AdminPage() {
           </div>
         ) : null}
       </section>
-    </RequireAuth>
+    </RequireRole>
   );
 }
