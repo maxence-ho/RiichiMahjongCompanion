@@ -95,6 +95,12 @@ Or:
 npm run docker:local
 ```
 
+If `3000` (or emulator ports) are already used on your machine, override host ports:
+
+```bash
+WEB_PORT=3001 FIREBASE_UI_PORT=4001 FUNCTIONS_PORT=5002 FIRESTORE_PORT=8081 AUTH_PORT=9100 npm run docker:local
+```
+
 This starts:
 
 - Next.js web app on `http://localhost:3000`
