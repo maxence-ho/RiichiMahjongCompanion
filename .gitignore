@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build artifacts
+.next/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+functions/lib/
+
+# Firebase emulator state and logs
+.emulator-seed/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+functions/firestore-debug.log
+ui-debug.log
+
+# Package manager and runtime logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Local environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/
