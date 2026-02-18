@@ -7,7 +7,7 @@ COPY package.json package-lock.json tsconfig.base.json firebase.json ./
 COPY apps/web/package.json /app/apps/web/package.json
 COPY functions/package.json /app/functions/package.json
 
-RUN npm ci
+RUN npm install
 COPY . /app
 
 FROM workspace AS web-build
