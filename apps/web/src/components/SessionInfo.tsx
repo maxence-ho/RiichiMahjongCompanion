@@ -3,7 +3,7 @@
 import { useAuthContext } from '@/features/auth/AuthProvider';
 
 export function SessionInfo() {
-  const { user, profile, loading } = useAuthContext();
+  const { user, profile, loading, activeClubRole, activeClubRoleLoading } = useAuthContext();
 
   if (loading) {
     return <p className="text-xs text-slate-500">Session: loading...</p>;
@@ -17,7 +17,11 @@ export function SessionInfo() {
 
   return (
     <p className="text-xs text-slate-600">
-      Connected as <span className="font-semibold text-slate-800">{name}</span> ({user.email ?? user.uid})
+      Connected as <span className="font-semibold text-slate-800">{name}</span> ({user.email ?? user.uid}) | club:{' '}
+      <span className="font-medium text-slate-700">{profile?.activeClubId ?? 'none'}</span> | role:{' '}
+      <span className="font-medium text-slate-700">
+        {activeClubRoleLoading ? 'loading...' : activeClubRole ?? 'none'}
+      </span>
     </p>
   );
 }

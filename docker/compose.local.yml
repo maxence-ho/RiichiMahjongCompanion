@@ -11,8 +11,8 @@ services:
       LOCAL_ADMIN_EMAIL: ${LOCAL_ADMIN_EMAIL:-admin@mahjong.local}
       LOCAL_ADMIN_PASSWORD: ${LOCAL_ADMIN_PASSWORD:-Test1234!}
       LOCAL_ADMIN_DISPLAY_NAME: ${LOCAL_ADMIN_DISPLAY_NAME:-admin@mahjong.local}
-      LOCAL_ADMIN_CLUB_ID: ${LOCAL_ADMIN_CLUB_ID:-club_local_default}
-      LOCAL_ADMIN_CLUB_NAME: ${LOCAL_ADMIN_CLUB_NAME:-Mahjong Club Local}
+      LOCAL_ADMIN_CLUB_ID: ${LOCAL_ADMIN_CLUB_ID:-club_seed_main}
+      LOCAL_ADMIN_CLUB_NAME: ${LOCAL_ADMIN_CLUB_NAME:-Mahjong Club Seed}
     ports:
       - "${FIREBASE_UI_PORT:-4000}:4000"
       - "${FUNCTIONS_PORT:-5001}:5001"

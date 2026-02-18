@@ -54,6 +54,10 @@ export const adminUpsertClubMemberSchema = z.object({
   role: z.enum(['admin', 'member'])
 });
 
+export const ensureTestAdminAccessSchema = z.object({
+  clubId: z.string().min(1).optional()
+});
+
 export function parseOrThrow<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {

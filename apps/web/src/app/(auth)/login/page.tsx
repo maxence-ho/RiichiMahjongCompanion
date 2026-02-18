@@ -10,7 +10,10 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
+import { ensureTestAdminAccess } from '@/lib/callables';
 import { auth, db } from '@/lib/firebaseClient';
+
+const TEST_ADMIN_EMAIL = 'admin@mahjong.local';
 
 async function ensureUserDoc(user: { uid: string; email: string | null; displayName: string | null }) {
   const userRef = doc(db, 'users', user.uid);
@@ -29,6 +32,17 @@ async function ensureUserDoc(user: { uid: string; email: string | null; displayN
   });
 }
 
+async function ensureTestAdminIfNeeded(user: { email: string | null }) {
+  const normalizedEmail = user.email?.trim().toLowerCase();
+  const shouldRun = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+
+  if (!shouldRun || normalizedEmail !== TEST_ADMIN_EMAIL) {
+    return;
+  }
+
+  await ensureTestAdminAccess();
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -44,6 +58,7 @@ export default function LoginPage() {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       await ensureUserDoc(result.user);
+      await ensureTestAdminIfNeeded(result.user);
       router.push('/club');
     } catch (signInError) {
       setError((signInError as Error).message);
@@ -59,6 +74,7 @@ export default function LoginPage() {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await ensureUserDoc(result.user);
+      await ensureTestAdminIfNeeded(result.user);
       router.push('/club');
     } catch (signUpError) {
       setError((signUpError as Error).message);
@@ -75,6 +91,7 @@ export default function LoginPage() {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       await ensureUserDoc(result.user);
+      await ensureTestAdminIfNeeded(result.user);
       router.push('/club');
     } catch (googleError) {
       setError((googleError as Error).message);

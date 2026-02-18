@@ -10,7 +10,7 @@ import {
 
 import { RequireRole } from '@/components/RequireRole';
 import { useAuthContext } from '@/features/auth/AuthProvider';
-import { adminUpsertClubMember, createTournamentRoundPairings } from '@/lib/callables';
+import { adminUpsertClubMember, createTournamentRoundPairings, ensureTestAdminAccess } from '@/lib/callables';
 import { registerPushToken } from '@/lib/firebaseMessaging';
 import { db } from '@/lib/firebaseClient';
 
@@ -136,63 +136,92 @@ export default function AdminPage() {
       return;
     }
 
-    const competitionRef = await addDoc(collection(db, `clubs/${clubId}/competitions`), {
-      name,
-      type,
-      status,
-      validationEnabled,
-      rules: {
-        mode: 'override',
-        overrideRules: {
-          startingPoints: Number(ruleValues.startingPoints),
-          returnPoints: Number(ruleValues.returnPoints),
-          scoreSum: Number(ruleValues.scoreSum),
-          uma: [
-            Number(ruleValues.uma1),
-            Number(ruleValues.uma2),
-            Number(ruleValues.uma3),
-            Number(ruleValues.uma4)
-          ],
-          oka: Number(ruleValues.oka),
-          rounding: ruleValues.rounding,
-          allowOpenTanyao: ruleValues.allowOpenTanyao,
-          useRedFives: ruleValues.useRedFives,
-          redFivesCount: {
-            man: Number(ruleValues.redMan),
-            pin: Number(ruleValues.redPin),
-            sou: Number(ruleValues.redSou)
-          },
-          useIppatsu: ruleValues.useIppatsu,
-          useUraDora: ruleValues.useUraDora,
-          useKanDora: ruleValues.useKanDora,
-          useKanUraDora: ruleValues.useKanUraDora,
-          headBump: ruleValues.headBump,
-          agariYame: ruleValues.agariYame,
-          tobiEnd: ruleValues.tobiEnd,
-          honbaPoints: Number(ruleValues.honbaPoints),
-          notenPaymentTotal: Number(ruleValues.notenPaymentTotal),
-          riichiBetPoints: Number(ruleValues.riichiBetPoints)
-        }
-      },
-      tournamentConfig:
-        type === 'tournament'
-          ? {
-              participantUserIds: selectedTournamentPlayers,
-              totalRounds: Number(totalRounds),
-              pairingAlgorithm
-            }
-          : null,
-      tournamentState:
-        type === 'tournament'
-          ? {
-              activeRoundNumber: null,
-              lastCompletedRound: 0
-            }
-          : null,
-      createdBy: user.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    const createCompetitionDoc = () =>
+      addDoc(collection(db, `clubs/${clubId}/competitions`), {
+        name,
+        type,
+        status,
+        validationEnabled,
+        rules: {
+          mode: 'override',
+          overrideRules: {
+            startingPoints: Number(ruleValues.startingPoints),
+            returnPoints: Number(ruleValues.returnPoints),
+            scoreSum: Number(ruleValues.scoreSum),
+            uma: [
+              Number(ruleValues.uma1),
+              Number(ruleValues.uma2),
+              Number(ruleValues.uma3),
+              Number(ruleValues.uma4)
+            ],
+            oka: Number(ruleValues.oka),
+            rounding: ruleValues.rounding,
+            allowOpenTanyao: ruleValues.allowOpenTanyao,
+            useRedFives: ruleValues.useRedFives,
+            redFivesCount: {
+              man: Number(ruleValues.redMan),
+              pin: Number(ruleValues.redPin),
+              sou: Number(ruleValues.redSou)
+            },
+            useIppatsu: ruleValues.useIppatsu,
+            useUraDora: ruleValues.useUraDora,
+            useKanDora: ruleValues.useKanDora,
+            useKanUraDora: ruleValues.useKanUraDora,
+            headBump: ruleValues.headBump,
+            agariYame: ruleValues.agariYame,
+            tobiEnd: ruleValues.tobiEnd,
+            honbaPoints: Number(ruleValues.honbaPoints),
+            notenPaymentTotal: Number(ruleValues.notenPaymentTotal),
+            riichiBetPoints: Number(ruleValues.riichiBetPoints)
+          }
+        },
+        tournamentConfig:
+          type === 'tournament'
+            ? {
+                participantUserIds: selectedTournamentPlayers,
+                totalRounds: Number(totalRounds),
+                pairingAlgorithm
+              }
+            : null,
+        tournamentState:
+          type === 'tournament'
+            ? {
+                activeRoundNumber: null,
+                lastCompletedRound: 0
+              }
+            : null,
+        createdBy: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+    const shouldRepairTestAdmin =
+      process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' &&
+      user.email?.trim().toLowerCase() === 'admin@mahjong.local';
+
+    let competitionRef: Awaited<ReturnType<typeof createCompetitionDoc>>;
+    let repairedAdminAccess = false;
+    try {
+      competitionRef = await createCompetitionDoc();
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? '';
+      const message = (error as { message?: string }).message ?? '';
+      const permissionDenied = code.includes('permission-denied') || message.includes('Missing or insufficient permissions');
+
+      if (!shouldRepairTestAdmin || !permissionDenied) {
+        setMessage(message || 'Failed to create competition.');
+        return;
+      }
+
+      try {
+        await ensureTestAdminAccess({ clubId });
+        repairedAdminAccess = true;
+        competitionRef = await createCompetitionDoc();
+      } catch (retryError) {
+        setMessage((retryError as { message?: string }).message ?? 'Failed to create competition.');
+        return;
+      }
+    }
 
     if (type === 'tournament' && status === 'active' && pairingAlgorithm === 'precomputed_min_repeats') {
       await createTournamentRoundPairings({
@@ -207,7 +236,9 @@ export default function AdminPage() {
     setValidationEnabled(true);
     setPairingAlgorithm('performance_swiss');
     setMessage(
-      type === 'tournament' && status === 'active' && pairingAlgorithm === 'precomputed_min_repeats'
+      repairedAdminAccess
+        ? 'Competition created after refreshing admin access.'
+        : type === 'tournament' && status === 'active' && pairingAlgorithm === 'precomputed_min_repeats'
         ? 'Tournament created and full schedule precomputed (round 1 is active).'
         : 'Competition created.'
     );
