@@ -9,6 +9,18 @@ MVP implementation of a responsive Mahjong club webapp with Firebase backend.
 - `firestore`: security rules and indexes
 - `functions/local-dev`: local-only scripts (not deployed runtime)
 
+## Engineering conventions
+
+- User-facing copy must be English-only unless an i18n feature is explicitly introduced.
+- Keep commits atomic (single intent per commit).
+- Run local required checks before merge:
+  - `npm run build -w apps/web`
+  - `npm run build -w functions`
+  - `npm run test -w functions`
+  - `npm run test -w apps/web`
+  - `npm run test:e2e -w apps/web`
+- Use `npm run check:all` to run the full local gate.
+
 ## Scope separation
 
 - Production runtime code:
@@ -95,11 +107,24 @@ Or:
 npm run docker:local
 ```
 
+`npm run docker:local` does not force rebuild. For a full rebuild:
+
+```bash
+npm run docker:local:rebuild
+```
+
+If `3000` (or emulator ports) are already used on your machine, override host ports:
+
+```bash
+WEB_PORT=3001 FIREBASE_UI_PORT=4001 FUNCTIONS_PORT=5002 FIRESTORE_PORT=8081 AUTH_PORT=9100 npm run docker:local
+```
+
 This starts:
 
 - Next.js web app on `http://localhost:3000`
 - Firebase emulators (UI/Auth/Firestore/Functions) on `4000/9099/8080/5001`
 - Deterministic admin-only seed data (single admin + single club)
+  - Seed runs automatically on first startup (or when `SEED_ON_START=true`)
 
 Default local admin credentials:
 

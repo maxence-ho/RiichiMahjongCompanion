@@ -91,3 +91,13 @@ export async function adminUpsertClubMember(input: {
   const response = await callable(input);
   return response.data;
 }
+
+export async function ensureTestAdminAccess(input?: { clubId?: string }) {
+  const callable = httpsCallable(functions, 'ensureTestAdminAccess');
+  const response = await callable(input ?? {});
+  return response.data as {
+    ok: boolean;
+    clubId: string;
+    role: 'admin';
+  };
+}

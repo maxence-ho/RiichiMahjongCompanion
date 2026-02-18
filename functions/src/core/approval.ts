@@ -110,6 +110,17 @@ export function createPendingProposalValidation(requiredUserIds: unknown): Propo
   return toWriteModel(uniqueRequiredUserIds, userApprovals);
 }
 
+export function createApprovedProposalValidation(requiredUserIds: unknown): ProposalValidationWriteModel {
+  const uniqueRequiredUserIds = toUniqueUserIds(requiredUserIds);
+  const userApprovals: Record<string, UserApprovalStatus> = {};
+
+  for (const userId of uniqueRequiredUserIds) {
+    userApprovals[userId] = 'approved';
+  }
+
+  return toWriteModel(uniqueRequiredUserIds, userApprovals);
+}
+
 export function resolveProposalValidation(validation: unknown): ProposalValidationView {
   const validationRecord = (validation ?? {}) as Record<string, unknown>;
   const requiredUserIds = toUniqueUserIds(validationRecord.requiredUserIds);

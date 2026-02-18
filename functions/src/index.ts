@@ -9,6 +9,7 @@ import { rejectProposalHandler } from './callable/rejectProposal.js';
 import { createTournamentRoundPairingsHandler } from './callable/createTournamentRoundPairings.js';
 import { submitTournamentTableResultProposalHandler } from './callable/submitTournamentTableResultProposal.js';
 import { adminUpsertClubMemberHandler } from './callable/adminUpsertClubMember.js';
+import { ensureTestAdminAccessHandler } from './callable/ensureTestAdminAccess.js';
 
 initializeApp();
 setGlobalOptions({
@@ -38,4 +39,8 @@ export const submitTournamentTableResultProposal = onCall(async (request) =>
 
 export const adminUpsertClubMember = onCall(async (request) =>
   adminUpsertClubMemberHandler(request.data, request.auth?.uid)
+);
+
+export const ensureTestAdminAccess = onCall(async (request) =>
+  ensureTestAdminAccessHandler(request.data, request.auth?.uid)
 );

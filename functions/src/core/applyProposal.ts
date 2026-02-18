@@ -51,6 +51,7 @@ export async function applyProposal({ db, proposalId }: ApplyProposalInput): Pro
       };
     }
 
+    const validationRequired = proposalData.validationRequired !== false;
     const validation = resolveProposalValidation(proposalData.validation);
     const required = validation.requiredUserIds;
 
@@ -251,20 +252,22 @@ export async function applyProposal({ db, proposalId }: ApplyProposalInput): Pro
       }
     }
 
-    for (const userId of required) {
-      transaction.set(
-        db.doc(`validationRequests/${validationRequestId(proposalId, userId)}`),
-        {
-          clubId: proposalData.clubId,
-          userId,
-          type: proposalData.type === 'edit' ? 'game_edit' : 'game_create',
-          proposalId,
-          gameId,
-          status: 'approved',
-          updatedAt: FieldValue.serverTimestamp()
-        },
-        { merge: true }
-      );
+    if (validationRequired) {
+      for (const userId of required) {
+        transaction.set(
+          db.doc(`validationRequests/${validationRequestId(proposalId, userId)}`),
+          {
+            clubId: proposalData.clubId,
+            userId,
+            type: proposalData.type === 'edit' ? 'game_edit' : 'game_create',
+            proposalId,
+            gameId,
+            status: 'approved',
+            updatedAt: FieldValue.serverTimestamp()
+          },
+          { merge: true }
+        );
+      }
     }
 
     return {

@@ -112,8 +112,8 @@ async function seed() {
   const adminEmail = process.env.LOCAL_ADMIN_EMAIL ?? 'admin@mahjong.local';
   const adminPassword = process.env.LOCAL_ADMIN_PASSWORD ?? 'Test1234!';
   const adminDisplayName = process.env.LOCAL_ADMIN_DISPLAY_NAME ?? adminEmail;
-  const clubId = process.env.LOCAL_ADMIN_CLUB_ID ?? 'club_local_default';
-  const clubName = process.env.LOCAL_ADMIN_CLUB_NAME ?? 'Mahjong Club Local';
+  const clubId = process.env.LOCAL_ADMIN_CLUB_ID ?? 'club_seed_main';
+  const clubName = process.env.LOCAL_ADMIN_CLUB_NAME ?? 'Mahjong Club Seed';
 
   if (!getApps().length) {
     initializeApp({ projectId });

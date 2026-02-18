@@ -94,14 +94,18 @@ export function CompetitionGameProposalForm({
     }
 
     try {
-      await submitGameCreateProposal({
+      const result = (await submitGameCreateProposal({
         clubId,
         participants: values.participants,
         finalScores,
         competitionIds: [competitionId]
-      });
+      })) as { status?: string };
 
-      setMessage('Game proposal submitted for unanimous validation.');
+      setMessage(
+        result.status === 'validated'
+          ? 'Game recorded immediately.'
+          : 'Game proposal submitted for unanimous validation.'
+      );
       reset({ participants: [], scores: {} });
       if (onSubmitted) {
         await onSubmitted();

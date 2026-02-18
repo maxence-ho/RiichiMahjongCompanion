@@ -16,8 +16,10 @@
     "seed:local:exec": "npx firebase-tools emulators:exec --project demo-mahjong-club --only firestore,auth --export-on-exit=.emulator-seed \"npm run seed:local -w functions\"",
     "seed:local:admin": "npm run seed:local:admin -w functions",
     "seed:local:admin:exec": "npx firebase-tools emulators:exec --project demo-mahjong-club --only firestore,auth --export-on-exit=.emulator-seed-admin \"npm run seed:local:admin -w functions\"",
-    "docker:local": "docker compose -f docker/compose.local.yml up --build",
-    "docker:prod": "docker compose -f docker/compose.prod.yml up --build -d"
+    "docker:local": "docker compose -f docker/compose.local.yml up",
+    "docker:local:rebuild": "docker compose --progress plain -f docker/compose.local.yml up --build",
+    "docker:prod": "docker compose -f docker/compose.prod.yml up --build -d",
+    "check:all": "npm run build -w apps/web && npm run build -w functions && npm run test -w functions && npm run test -w apps/web && npm run test:e2e -w apps/web"
   },
   "devDependencies": {
     "firebase-tools": "^13.35.0"

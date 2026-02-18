@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyValidationDecision,
+  createApprovedProposalValidation,
   createPendingProposalValidation,
   resolveProposalValidation
 } from '../src/core/approval.js';
@@ -20,6 +21,19 @@ describe('approval domain', () => {
     expect(validation.rejectedBy).toEqual([]);
   });
 
+  it('creates an approved validation model for immediate acceptance', () => {
+    const validation = createApprovedProposalValidation(['u1', 'users/u2', 'u1', '', '  ', 'clubs/c/members/u3']);
+
+    expect(validation.requiredUserIds).toEqual(['u1', 'u2', 'u3']);
+    expect(validation.userApprovals).toEqual({
+      u1: 'approved',
+      u2: 'approved',
+      u3: 'approved'
+    });
+    expect(validation.approvedBy).toEqual(['u1', 'u2', 'u3']);
+    expect(validation.rejectedBy).toEqual([]);
+  });
+
   it('resolves legacy approval arrays into per-user statuses', () => {
     const resolved = resolveProposalValidation({
       requiredUserIds: ['u1', 'u2', 'u3', 'u4'],
@@ -35,6 +49,20 @@ describe('approval domain', () => {
     });
     expect(resolved.pendingUserIds).toEqual(['u4']);
     expect(resolved.unanimityReached).toBe(false);
+  });
+
+  it('resolves approved validation to unanimity reached without rejection', () => {
+    const resolved = resolveProposalValidation(createApprovedProposalValidation(['u1', 'u2', 'u3', 'u4']));
+
+    expect(resolved.userApprovals).toEqual({
+      u1: 'approved',
+      u2: 'approved',
+      u3: 'approved',
+      u4: 'approved'
+    });
+    expect(resolved.pendingUserIds).toEqual([]);
+    expect(resolved.unanimityReached).toBe(true);
+    expect(resolved.hasRejection).toBe(false);
   });
 
   it('applies approvals until unanimity is reached', () => {

@@ -2,7 +2,7 @@
 set -eu
 
 PROJECT_ID="${FIREBASE_PROJECT_ID:-demo-mahjong-club}"
-SEED_DIR="${EMULATOR_SEED_DIR:-.emulator-seed-admin}"
+SEED_DIR="${EMULATOR_SEED_DIR:-.emulator-seed-admin/export}"
 SEED_METADATA="${SEED_DIR}/firebase-export-metadata.json"
 SEED_ON_START="${SEED_ON_START:-true}"
 

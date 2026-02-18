@@ -640,6 +640,7 @@ async function seed() {
     name: 'Championnat Seed 2026',
     type: 'championship',
     status: 'active',
+    validationEnabled: true,
     startAt: at(3),
     endAt: null,
     rules: {
@@ -654,6 +655,7 @@ async function seed() {
     name: 'Tournoi Seed Performance 2026',
     type: 'tournament',
     status: 'active',
+    validationEnabled: true,
     startAt: at(4),
     endAt: null,
     rules: {
@@ -678,6 +680,7 @@ async function seed() {
     name: 'Tournoi Seed Precomputed 2026',
     type: 'tournament',
     status: 'active',
+    validationEnabled: true,
     startAt: at(5),
     endAt: null,
     rules: {
