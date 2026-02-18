@@ -3,7 +3,9 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { HttpsError } from 'firebase-functions/v2/https';
 
 import { computeGameOutcome } from '../core/scoring.js';
-import { createPendingProposalValidation } from '../core/approval.js';
+import { createApprovedProposalValidation, createPendingProposalValidation } from '../core/approval.js';
+import { applyProposal } from '../core/applyProposal.js';
+import { isCompetitionValidationEnabled } from '../core/competition.js';
 import {
   assertParticipantsUnique,
   assertScoreMapMatchesParticipants,
@@ -94,7 +96,10 @@ export async function submitGameEditProposalHandler(data: unknown, uid?: string 
   const requiredUserIds = Array.from(
     new Set([...(gameData.participants as string[]), ...input.proposedVersion.participants])
   );
-  const validation = createPendingProposalValidation(requiredUserIds);
+  const validationEnabled = isCompetitionValidationEnabled(competitionData);
+  const validation = validationEnabled
+    ? createPendingProposalValidation(requiredUserIds)
+    : createApprovedProposalValidation(requiredUserIds);
 
   const batch = db.batch();
 
@@ -107,6 +112,7 @@ export async function submitGameEditProposalHandler(data: unknown, uid?: string 
     proposedVersion: input.proposedVersion,
     resolvedRulesSnapshot: resolvedRules,
     computedPreview,
+    validationRequired: validationEnabled,
     validation: {
       ...validation,
       createdAt: FieldValue.serverTimestamp(),
@@ -126,21 +132,36 @@ export async function submitGameEditProposalHandler(data: unknown, uid?: string 
     updatedAt: FieldValue.serverTimestamp()
   });
 
-  for (const userId of requiredUserIds) {
-    const requestRef = db.collection('validationRequests').doc(validationRequestId(proposalRef.id, userId));
-    batch.set(requestRef, {
-      clubId,
-      userId,
-      type: 'game_edit',
-      proposalId: proposalRef.id,
-      gameId: input.gameId,
-      status: 'pending',
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    });
+  if (validationEnabled) {
+    for (const userId of requiredUserIds) {
+      const requestRef = db.collection('validationRequests').doc(validationRequestId(proposalRef.id, userId));
+      batch.set(requestRef, {
+        clubId,
+        userId,
+        type: 'game_edit',
+        proposalId: proposalRef.id,
+        gameId: input.gameId,
+        status: 'pending',
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      });
+    }
   }
 
   await batch.commit();
+
+  if (!validationEnabled) {
+    const applyResult = await applyProposal({
+      db,
+      proposalId: proposalRef.id,
+    });
+
+    return {
+      gameId: input.gameId,
+      proposalId: proposalRef.id,
+      status: applyResult.gameStatus
+    };
+  }
 
   await sendValidationNotifications({
     db,

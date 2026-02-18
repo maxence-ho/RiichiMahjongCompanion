@@ -3,7 +3,9 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { HttpsError } from 'firebase-functions/v2/https';
 
 import { computeGameOutcome } from '../core/scoring.js';
-import { createPendingProposalValidation } from '../core/approval.js';
+import { createApprovedProposalValidation, createPendingProposalValidation } from '../core/approval.js';
+import { applyProposal } from '../core/applyProposal.js';
+import { isCompetitionValidationEnabled } from '../core/competition.js';
 import {
   assertParticipantsUnique,
   assertScoreMapMatchesParticipants,
@@ -64,6 +66,7 @@ export async function submitGameCreateProposalHandler(data: unknown, uid?: strin
     throw new HttpsError('failed-precondition', 'A competition is required.');
   }
 
+  const validationEnabled = isCompetitionValidationEnabled(competitionData);
   const competitionType = competitionData.type as 'championship' | 'tournament';
   const isTournamentSubmission = Boolean(input.tournamentContext);
 
@@ -145,7 +148,9 @@ export async function submitGameCreateProposalHandler(data: unknown, uid?: strin
   assertScoreMapMatchesParticipants(input.participants, input.finalScores, resolvedRules.scoreSum);
 
   const computedPreview = computeGameOutcome(input.participants, input.finalScores, resolvedRules);
-  const validation = createPendingProposalValidation(input.participants);
+  const validation = validationEnabled
+    ? createPendingProposalValidation(input.participants)
+    : createApprovedProposalValidation(input.participants);
 
   const gameRef = db.collection('games').doc();
   const proposalRef = db.collection('editProposals').doc();
@@ -186,6 +191,7 @@ export async function submitGameCreateProposalHandler(data: unknown, uid?: strin
     },
     resolvedRulesSnapshot: resolvedRules,
     computedPreview,
+    validationRequired: validationEnabled,
     validation: {
       ...validation,
       createdAt: FieldValue.serverTimestamp(),
@@ -204,18 +210,20 @@ export async function submitGameCreateProposalHandler(data: unknown, uid?: strin
     updatedAt: FieldValue.serverTimestamp()
   });
 
-  for (const participant of input.participants) {
-    const requestRef = db.collection('validationRequests').doc(validationRequestId(proposalRef.id, participant));
-    batch.set(requestRef, {
-      clubId: input.clubId,
-      userId: participant,
-      type: 'game_create',
-      proposalId: proposalRef.id,
-      gameId: gameRef.id,
-      status: 'pending',
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    });
+  if (validationEnabled) {
+    for (const participant of input.participants) {
+      const requestRef = db.collection('validationRequests').doc(validationRequestId(proposalRef.id, participant));
+      batch.set(requestRef, {
+        clubId: input.clubId,
+        userId: participant,
+        type: 'game_create',
+        proposalId: proposalRef.id,
+        gameId: gameRef.id,
+        status: 'pending',
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      });
+    }
   }
 
   if (input.tournamentContext) {
@@ -233,6 +241,19 @@ export async function submitGameCreateProposalHandler(data: unknown, uid?: strin
   }
 
   await batch.commit();
+
+  if (!validationEnabled) {
+    const applyResult = await applyProposal({
+      db,
+      proposalId: proposalRef.id,
+    });
+
+    return {
+      gameId: gameRef.id,
+      proposalId: proposalRef.id,
+      status: applyResult.gameStatus
+    };
+  }
 
   await sendValidationNotifications({
     db,

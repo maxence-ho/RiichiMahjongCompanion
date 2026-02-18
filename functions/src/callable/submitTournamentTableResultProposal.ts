@@ -2,7 +2,9 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { HttpsError } from 'firebase-functions/v2/https';
 
-import { createPendingProposalValidation } from '../core/approval.js';
+import { createApprovedProposalValidation, createPendingProposalValidation } from '../core/approval.js';
+import { applyProposal } from '../core/applyProposal.js';
+import { isCompetitionValidationEnabled } from '../core/competition.js';
 import { computeGameOutcome } from '../core/scoring.js';
 import { sendValidationNotifications } from '../core/notifications.js';
 import { submitGameCreateProposalHandler } from './submitGameCreateProposal.js';
@@ -37,6 +39,7 @@ export async function submitTournamentTableResultProposalHandler(data: unknown, 
   if (competitionData.type !== 'tournament') {
     throw new HttpsError('failed-precondition', 'This callable is only available for tournaments.');
   }
+  const validationEnabled = isCompetitionValidationEnabled(competitionData);
 
   if (!roundSnapshot.exists) {
     throw new HttpsError('not-found', 'Round not found.');
@@ -130,7 +133,9 @@ export async function submitTournamentTableResultProposalHandler(data: unknown, 
         ...playerIds
       ])
     );
-    const validation = createPendingProposalValidation(requiredUserIds);
+    const validation = validationEnabled
+      ? createPendingProposalValidation(requiredUserIds)
+      : createApprovedProposalValidation(requiredUserIds);
 
     const batch = db.batch();
 
@@ -144,6 +149,7 @@ export async function submitTournamentTableResultProposalHandler(data: unknown, 
           competitionIds: [input.competitionId]
         },
         computedPreview,
+        validationRequired: validationEnabled,
         validation: {
           ...validation,
           createdAt: proposalData.validation?.createdAt ?? FieldValue.serverTimestamp(),
@@ -165,23 +171,39 @@ export async function submitTournamentTableResultProposalHandler(data: unknown, 
       { merge: true }
     );
 
-    for (const userId of requiredUserIds) {
-      batch.set(
-        db.doc(`validationRequests/${validationRequestId(proposalId, userId)}`),
-        {
-          clubId: input.clubId,
-          userId,
-          type: 'game_create',
-          proposalId,
-          gameId,
-          status: 'pending',
-          updatedAt: FieldValue.serverTimestamp()
-        },
-        { merge: true }
-      );
+    if (validationEnabled) {
+      for (const userId of requiredUserIds) {
+        batch.set(
+          db.doc(`validationRequests/${validationRequestId(proposalId, userId)}`),
+          {
+            clubId: input.clubId,
+            userId,
+            type: 'game_create',
+            proposalId,
+            gameId,
+            status: 'pending',
+            updatedAt: FieldValue.serverTimestamp()
+          },
+          { merge: true }
+        );
+      }
     }
 
     await batch.commit();
+
+    if (!validationEnabled) {
+      const applyResult = await applyProposal({
+        db,
+        proposalId,
+      });
+
+      return {
+        gameId,
+        proposalId,
+        status: applyResult.gameStatus,
+        resubmitted: true
+      };
+    }
 
     await sendValidationNotifications({
       db,

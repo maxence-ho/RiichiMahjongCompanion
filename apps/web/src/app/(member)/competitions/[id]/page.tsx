@@ -625,14 +625,18 @@ export default function CompetitionDetailPage() {
 
     setMessage(null);
     try {
-      await submitTournamentTableResultProposal({
+      const result = (await submitTournamentTableResultProposal({
         clubId: profile.activeClubId,
         competitionId,
         roundId,
         tableIndex,
         finalScores
-      });
-      setMessage('Table result submitted for approval.');
+      })) as { status?: string };
+      setMessage(
+        result.status === 'validated'
+          ? 'Table result recorded immediately.'
+          : 'Table result submitted for approval.'
+      );
       await load();
     } catch (error) {
       setMessage((error as { message?: string }).message ?? 'Failed to submit table result.');
@@ -651,6 +655,7 @@ export default function CompetitionDetailPage() {
 
   const isChampionship = competition.type === 'championship';
   const isTournament = competition.type === 'tournament';
+  const validationEnabled = competition.validationEnabled !== false;
 
   return (
     <RequireAuth>
@@ -748,6 +753,7 @@ export default function CompetitionDetailPage() {
               <p>Honba points: {resolvedRules.honbaPoints}</p>
               <p>Noten payment total: {resolvedRules.notenPaymentTotal}</p>
               <p>Riichi stick points: {resolvedRules.riichiBetPoints}</p>
+              <p>Game validation: {validationEnabled ? 'enabled' : 'disabled (auto-accepted)'}</p>
             </div>
           </div>
 

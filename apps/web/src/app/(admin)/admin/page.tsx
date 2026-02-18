@@ -19,6 +19,7 @@ interface CompetitionAdmin {
   name: string;
   type: 'tournament' | 'championship';
   status: 'draft' | 'active' | 'archived';
+  validationEnabled?: boolean;
 }
 
 interface MemberItem {
@@ -61,6 +62,7 @@ export default function AdminPage() {
   const [name, setName] = useState('');
   const [type, setType] = useState<'tournament' | 'championship'>('championship');
   const [status, setStatus] = useState<'draft' | 'active' | 'archived'>('active');
+  const [validationEnabled, setValidationEnabled] = useState(true);
   const [totalRounds, setTotalRounds] = useState(4);
   const [pairingAlgorithm, setPairingAlgorithm] = useState<'performance_swiss' | 'precomputed_min_repeats'>(
     'performance_swiss'
@@ -138,6 +140,7 @@ export default function AdminPage() {
       name,
       type,
       status,
+      validationEnabled,
       rules: {
         mode: 'override',
         overrideRules: {
@@ -201,6 +204,7 @@ export default function AdminPage() {
     setName('');
     setType('championship');
     setStatus('active');
+    setValidationEnabled(true);
     setPairingAlgorithm('performance_swiss');
     setMessage(
       type === 'tournament' && status === 'active' && pairingAlgorithm === 'precomputed_min_repeats'
@@ -297,6 +301,15 @@ export default function AdminPage() {
                     <option value="archived">Archived</option>
                   </select>
                 </div>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={validationEnabled}
+                    onChange={(event) => setValidationEnabled(event.target.checked)}
+                  />
+                  Require game validation
+                </label>
 
                 <div className="space-y-3 rounded border border-slate-200 p-3">
                   <h4 className="text-sm font-semibold">Rules configuration</h4>
@@ -706,7 +719,8 @@ export default function AdminPage() {
               {items.length === 0 ? <li className="text-slate-600">No competitions found.</li> : null}
               {items.map((item) => (
                 <li key={item.id} className="rounded border border-slate-100 p-2">
-                  {item.name} | {item.type} | {item.status}
+                  {item.name} | {item.type} | {item.status} | validation:{' '}
+                  {item.validationEnabled === false ? 'disabled' : 'enabled'}
                 </li>
               ))}
             </ul>

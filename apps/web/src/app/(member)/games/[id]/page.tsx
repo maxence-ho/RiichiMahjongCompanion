@@ -314,7 +314,7 @@ export default function GameDetailPage() {
     }
 
     try {
-      await submitGameEditProposal({
+      const result = (await submitGameEditProposal({
         gameId: game.id,
         fromVersionId: version.id,
         proposedVersion: {
@@ -322,9 +322,13 @@ export default function GameDetailPage() {
           finalScores: draftScores,
           competitionIds: game.competitionIds
         }
-      });
+      })) as { status?: string };
 
-      setMessage('Edit proposal submitted. Waiting for unanimous approval.');
+      setMessage(
+        result.status === 'validated'
+          ? 'Edit recorded immediately.'
+          : 'Edit proposal submitted. Waiting for unanimous approval.'
+      );
       await load();
     } catch (editError) {
       const errorMessage =

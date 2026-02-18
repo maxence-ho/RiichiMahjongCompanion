@@ -49,6 +49,7 @@ export interface Competition {
   name: string;
   type: 'tournament' | 'championship';
   status: 'draft' | 'active' | 'archived';
+  validationEnabled?: boolean;
   startAt?: string;
   endAt?: string;
   rules?: {
