@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { useParams } from 'next/navigation';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 
@@ -77,6 +77,341 @@ function tournamentTabClass(active: boolean) {
   return active
     ? 'rounded border border-brand-700 bg-brand-700 px-3 py-2 text-sm font-medium text-white'
     : 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700';
+}
+
+function TournamentGamesPanels({
+  pendingGames,
+  validatedGames
+}: {
+  pendingGames: GameListItem[];
+  validatedGames: GameListItem[];
+}) {
+  return (
+    <>
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="text-base font-semibold">Games pending approval</h3>
+        <div className="mt-2 space-y-2">
+          {pendingGames.length === 0 ? <p className="text-sm text-slate-600">No pending games.</p> : null}
+          {pendingGames.map((game) => (
+            <GameCard
+              key={game.id}
+              id={game.id}
+              participants={game.participants}
+              status={game.status}
+              competitionIds={game.competitionIds}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="text-base font-semibold">Latest validated games</h3>
+        <div className="mt-2 space-y-2">
+          {validatedGames.length === 0 ? <p className="text-sm text-slate-600">No validated games yet.</p> : null}
+          {validatedGames.map((game) => (
+            <GameCard
+              key={game.id}
+              id={game.id}
+              participants={game.participants}
+              status={game.status}
+              competitionIds={game.competitionIds}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+interface ActiveRoundInputSectionProps {
+  activeRound: TournamentRound | null;
+  tableScores: Record<string, Record<string, number>>;
+  setTableScores: Dispatch<SetStateAction<Record<string, Record<string, number>>>>;
+  displayName: (userId: string) => string;
+  onSubmitTableResult: (roundId: string, tableIndex: number) => void;
+}
+
+function ActiveRoundInputSection({
+  activeRound,
+  tableScores,
+  setTableScores,
+  displayName,
+  onSubmitTableResult
+}: ActiveRoundInputSectionProps) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <h3 className="text-base font-semibold">Active round input</h3>
+      {activeRound ? (
+        <div className="mt-3 space-y-2">
+          <p className="text-sm text-slate-700">
+            Round #{activeRound.roundNumber} is active. Submit each table result for approval.
+          </p>
+          {Object.values(activeRound.tables)
+            .sort((a, b) => a.tableIndex - b.tableIndex)
+            .map((table) => {
+              const key = `${activeRound.id}:${table.tableIndex}`;
+              return (
+                <div key={key} className="rounded border border-slate-100 p-3">
+                  <p className="text-sm font-medium">
+                    Table {table.tableIndex + 1} | <StatusBadge status={table.status} />
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    Players: {table.playerIds.map((playerId) => displayName(playerId)).join(', ')}
+                  </p>
+                  {(table.status === 'awaiting_result' ||
+                    table.status === 'disputed' ||
+                    table.status === 'pending_validation') && (
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {table.playerIds.map((playerId) => (
+                        <label key={playerId} className="text-xs">
+                          <span className="mb-1 block">{displayName(playerId)}</span>
+                          <input
+                            className="w-full rounded border border-slate-300 p-2 text-sm"
+                            type="number"
+                            value={tableScores[key]?.[playerId] ?? ''}
+                            onChange={(event) =>
+                              setTableScores((current) => ({
+                                ...current,
+                                [key]: {
+                                  ...(current[key] ?? {}),
+                                  [playerId]: Number(event.target.value)
+                                }
+                              }))
+                            }
+                          />
+                        </label>
+                      ))}
+                      <button
+                        className="rounded bg-brand-700 px-3 py-2 text-sm font-medium text-white sm:col-span-2"
+                        onClick={() => onSubmitTableResult(activeRound.id, table.tableIndex)}
+                      >
+                        {table.status === 'pending_validation' ? 'Resubmit and restart approval' : 'Submit table result'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-slate-600">No active round.</p>
+      )}
+    </div>
+  );
+}
+
+interface TournamentMemberSectionProps extends ActiveRoundInputSectionProps {
+  competition: Competition;
+  completedRounds: number;
+  scheduledRounds: number;
+  pendingGames: GameListItem[];
+  validatedGames: GameListItem[];
+}
+
+function TournamentMemberSection({
+  competition,
+  activeRound,
+  completedRounds,
+  scheduledRounds,
+  pendingGames,
+  validatedGames,
+  tableScores,
+  setTableScores,
+  displayName,
+  onSubmitTableResult
+}: TournamentMemberSectionProps) {
+  return (
+    <>
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="text-base font-semibold">Tournament progress</h3>
+        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <p>Total rounds configured: {competition.tournamentConfig?.totalRounds ?? '-'}</p>
+          <p>Completed rounds: {completedRounds}</p>
+          <p>Scheduled rounds: {scheduledRounds}</p>
+          <p>Active round: {activeRound ? `#${activeRound.roundNumber}` : 'none'}</p>
+        </div>
+      </div>
+
+      <ActiveRoundInputSection
+        activeRound={activeRound}
+        tableScores={tableScores}
+        setTableScores={setTableScores}
+        displayName={displayName}
+        onSubmitTableResult={onSubmitTableResult}
+      />
+
+      <TournamentGamesPanels pendingGames={pendingGames} validatedGames={validatedGames} />
+    </>
+  );
+}
+
+interface TournamentAdminSectionProps extends TournamentMemberSectionProps {
+  rounds: TournamentRound[];
+  roundsAsc: TournamentRound[];
+  isSubmittingRound: boolean;
+  isPrecomputedTournament: boolean;
+  onCreateNextRound: () => Promise<void>;
+  tournamentTab: 'overview' | 'input' | 'games';
+  setTournamentTab: Dispatch<SetStateAction<'overview' | 'input' | 'games'>>;
+  tableResultsByGameId: Record<string, { participants: string[]; finalScores: Record<string, number> }>;
+}
+
+function TournamentAdminSection({
+  competition,
+  activeRound,
+  completedRounds,
+  scheduledRounds,
+  pendingGames,
+  validatedGames,
+  tableScores,
+  setTableScores,
+  displayName,
+  onSubmitTableResult,
+  rounds,
+  roundsAsc,
+  isSubmittingRound,
+  isPrecomputedTournament,
+  onCreateNextRound,
+  tournamentTab,
+  setTournamentTab,
+  tableResultsByGameId
+}: TournamentAdminSectionProps) {
+  return (
+    <>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold text-amber-900">Approval gate</h3>
+          <button
+            className="rounded border border-amber-300 bg-white px-3 py-1 text-sm text-amber-900"
+            onClick={() => setTournamentTab('games')}
+          >
+            Open games tab
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-amber-800">
+          Pending games must be approved before progressing to the next round.
+        </p>
+        <p className="mt-1 text-sm font-medium text-amber-900">Pending approvals: {pendingGames.length}</p>
+        <div className="mt-2 space-y-1">
+          {pendingGames.slice(0, 3).map((game) => (
+            <GameCard
+              key={game.id}
+              id={game.id}
+              participants={game.participants}
+              status={game.status}
+              competitionIds={game.competitionIds}
+            />
+          ))}
+          {pendingGames.length === 0 ? <p className="text-sm text-amber-800">No pending games.</p> : null}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold">Tournament navigation</h3>
+          <button
+            className="rounded bg-brand-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+            onClick={() => onCreateNextRound().catch(() => undefined)}
+            disabled={isSubmittingRound || activeRound != null || competition.status !== 'active'}
+          >
+            {isPrecomputedTournament
+              ? rounds.length === 0
+                ? 'Initialize full schedule'
+                : 'Start next scheduled round'
+              : 'Create next round'}
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button className={tournamentTabClass(tournamentTab === 'overview')} onClick={() => setTournamentTab('overview')}>
+            Overview
+          </button>
+          <button className={tournamentTabClass(tournamentTab === 'games')} onClick={() => setTournamentTab('games')}>
+            Games
+          </button>
+          <button className={tournamentTabClass(tournamentTab === 'input')} onClick={() => setTournamentTab('input')}>
+            Round input
+          </button>
+        </div>
+      </div>
+
+      {tournamentTab === 'overview' ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <h3 className="text-base font-semibold">Tournament overview</h3>
+          <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <p>Total rounds configured: {competition.tournamentConfig?.totalRounds ?? '-'}</p>
+            <p>Completed rounds: {completedRounds}</p>
+            <p>Scheduled rounds: {scheduledRounds}</p>
+            <p>Active round: {activeRound ? `#${activeRound.roundNumber}` : 'none'}</p>
+          </div>
+
+          <div className="mt-3">
+            <h4 className="text-sm font-semibold">Rounds, tables and scores</h4>
+            <div className="mt-2 space-y-2">
+              {roundsAsc.length === 0 ? <p className="text-sm text-slate-600">No rounds yet.</p> : null}
+              {roundsAsc.map((round) => (
+                <article key={round.id} className="rounded border border-slate-100 p-3">
+                  <p className="text-sm font-semibold">
+                    Round {round.roundNumber} | <StatusBadge status={round.status} />
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {Object.values(round.tables)
+                      .sort((a, b) => a.tableIndex - b.tableIndex)
+                      .map((table) => {
+                        const tableResult = table.gameId ? tableResultsByGameId[table.gameId] : undefined;
+                        return (
+                          <div key={`${round.id}_${table.tableIndex}`} className="rounded border border-slate-100 p-2">
+                            <p className="text-sm font-medium">
+                              Table {table.tableIndex + 1} | <StatusBadge status={table.status} />
+                            </p>
+                            <div className="mt-2 overflow-x-auto">
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="text-left text-slate-500">
+                                    <th className="pr-4">Player</th>
+                                    <th>Score</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(tableResult?.participants ?? table.playerIds).map((playerId) => (
+                                    <tr key={`${round.id}_${table.tableIndex}_${playerId}`} className="border-t border-slate-100">
+                                      <td className="py-1 pr-4">{displayName(playerId)}</td>
+                                      <td className="py-1">
+                                        {tableResult?.finalScores?.[playerId] != null
+                                          ? tableResult.finalScores[playerId]
+                                          : '-'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tournamentTab === 'input' ? (
+        <ActiveRoundInputSection
+          activeRound={activeRound}
+          tableScores={tableScores}
+          setTableScores={setTableScores}
+          displayName={displayName}
+          onSubmitTableResult={onSubmitTableResult}
+        />
+      ) : null}
+
+      {tournamentTab === 'games' ? (
+        <TournamentGamesPanels pendingGames={pendingGames} validatedGames={validatedGames} />
+      ) : null}
+    </>
+  );
 }
 
 export default function CompetitionDetailPage() {
@@ -349,280 +684,45 @@ export default function CompetitionDetailPage() {
           </div>
 
           {isTournament ? (
-            <>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold text-amber-900">Approval gate</h3>
-                  <button
-                    className="rounded border border-amber-300 bg-white px-3 py-1 text-sm text-amber-900"
-                    onClick={() => setTournamentTab('games')}
-                  >
-                    Open games tab
-                  </button>
-                </div>
-                <p className="mt-1 text-sm text-amber-800">
-                  Pending games must be approved before progressing to the next round.
-                </p>
-                <p className="mt-1 text-sm font-medium text-amber-900">
-                  Pending approvals: {pendingGames.length}
-                </p>
-                <div className="mt-2 space-y-1">
-                  {pendingGames.slice(0, 3).map((game) => (
-                    <GameCard
-                      key={game.id}
-                      id={game.id}
-                      participants={game.participants}
-                      status={game.status}
-                      competitionIds={game.competitionIds}
-                    />
-                  ))}
-                  {pendingGames.length === 0 ? <p className="text-sm text-amber-800">No pending games.</p> : null}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold">Tournament navigation</h3>
-                  {isAdmin ? (
-                    <button
-                      className="rounded bg-brand-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                      onClick={onCreateNextRound}
-                      disabled={isSubmittingRound || activeRound != null || competition.status !== 'active'}
-                    >
-                      {isPrecomputedTournament
-                        ? rounds.length === 0
-                          ? 'Initialize full schedule'
-                          : 'Start next scheduled round'
-                        : 'Create next round'}
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    className={tournamentTabClass(tournamentTab === 'overview')}
-                    onClick={() => setTournamentTab('overview')}
-                  >
-                    Overview
-                  </button>
-                  <button
-                    className={tournamentTabClass(tournamentTab === 'games')}
-                    onClick={() => setTournamentTab('games')}
-                  >
-                    Games
-                  </button>
-                  <button
-                    className={tournamentTabClass(tournamentTab === 'input')}
-                    onClick={() => setTournamentTab('input')}
-                  >
-                    Round input
-                  </button>
-                </div>
-              </div>
-
-              {tournamentTab === 'overview' ? (
-                <div className="rounded-lg border border-slate-200 bg-white p-4">
-                  <h3 className="text-base font-semibold">Tournament overview</h3>
-                  <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                    <p>Total rounds configured: {competition.tournamentConfig?.totalRounds ?? '-'}</p>
-                    <p>Completed rounds: {completedRounds}</p>
-                    <p>Scheduled rounds: {scheduledRounds}</p>
-                    <p>Active round: {activeRound ? `#${activeRound.roundNumber}` : 'none'}</p>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Pairing algorithm:{' '}
-                    {isPrecomputedTournament ? 'precomputed min repeat encounters' : 'between rounds (performance-based)'}
-                  </p>
-
-                  <div className="mt-3">
-                    <h4 className="text-sm font-semibold">Rounds, tables and scores</h4>
-                    <div className="mt-2 space-y-2">
-                      {roundsAsc.length === 0 ? <p className="text-sm text-slate-600">No rounds yet.</p> : null}
-                      {roundsAsc.map((round) => (
-                        <article key={round.id} className="rounded border border-slate-100 p-3">
-                          <p className="text-sm font-semibold">
-                            Round {round.roundNumber} | <StatusBadge status={round.status} />
-                          </p>
-                          <div className="mt-2 space-y-2">
-                            {Object.values(round.tables)
-                              .sort((a, b) => a.tableIndex - b.tableIndex)
-                              .map((table) => {
-                                const tableResult = table.gameId ? tableResultsByGameId[table.gameId] : undefined;
-                                return (
-                                  <div key={`${round.id}_${table.tableIndex}`} className="rounded border border-slate-100 p-2">
-                                    <p className="text-sm font-medium">
-                                      Table {table.tableIndex + 1} | <StatusBadge status={table.status} />
-                                    </p>
-                                    <div className="mt-2 overflow-x-auto">
-                                      <table className="min-w-full text-sm">
-                                        <thead>
-                                          <tr className="text-left text-slate-500">
-                                            <th className="pr-4">Player</th>
-                                            <th>Score</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {(tableResult?.participants ?? table.playerIds).map((playerId) => (
-                                            <tr key={`${round.id}_${table.tableIndex}_${playerId}`} className="border-t border-slate-100">
-                                              <td className="py-1 pr-4">{displayName(playerId)}</td>
-                                              <td className="py-1">
-                                                {tableResult?.finalScores?.[playerId] != null
-                                                  ? tableResult.finalScores[playerId]
-                                                  : '-'}
-                                              </td>
-                                            </tr>
-                                          ))}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {tournamentTab === 'input' ? (
-                <div className="rounded-lg border border-slate-200 bg-white p-4">
-                  <h3 className="text-base font-semibold">Active round input</h3>
-                  {activeRound ? (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-sm text-slate-700">
-                        Round #{activeRound.roundNumber} is active. Submit each table result for approval.
-                      </p>
-                      {Object.values(activeRound.tables)
-                        .sort((a, b) => a.tableIndex - b.tableIndex)
-                        .map((table) => {
-                          const key = `${activeRound.id}:${table.tableIndex}`;
-                          return (
-                            <div key={key} className="rounded border border-slate-100 p-3">
-                              <p className="text-sm font-medium">
-                                Table {table.tableIndex + 1} | <StatusBadge status={table.status} />
-                              </p>
-                              <p className="mt-1 text-sm text-slate-700">
-                                Players: {table.playerIds.map((playerId) => displayName(playerId)).join(', ')}
-                              </p>
-                              {(table.status === 'awaiting_result' ||
-                                table.status === 'disputed' ||
-                                table.status === 'pending_validation') && (
-                                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                  {table.playerIds.map((playerId) => (
-                                    <label key={playerId} className="text-xs">
-                                      <span className="mb-1 block">{displayName(playerId)}</span>
-                                      <input
-                                        className="w-full rounded border border-slate-300 p-2 text-sm"
-                                        type="number"
-                                        value={tableScores[key]?.[playerId] ?? ''}
-                                        onChange={(event) =>
-                                          setTableScores((current) => ({
-                                            ...current,
-                                            [key]: {
-                                              ...(current[key] ?? {}),
-                                              [playerId]: Number(event.target.value)
-                                            }
-                                          }))
-                                        }
-                                      />
-                                    </label>
-                                  ))}
-                                  <button
-                                    className="rounded bg-brand-700 px-3 py-2 text-sm font-medium text-white sm:col-span-2"
-                                    onClick={() => onSubmitTableResult(activeRound.id, table.tableIndex)}
-                                  >
-                                    {table.status === 'pending_validation'
-                                      ? 'Resubmit and restart approval'
-                                      : 'Submit table result'}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  ) : (
-                    <p className="mt-3 text-sm text-slate-600">No active round.</p>
-                  )}
-                </div>
-              ) : null}
-
-              {tournamentTab === 'games' ? (
-                <>
-                  <div className="rounded-lg border border-slate-200 bg-white p-4">
-                    <h3 className="text-base font-semibold">Games pending approval</h3>
-                    <div className="mt-2 space-y-2">
-                      {pendingGames.length === 0 ? <p className="text-sm text-slate-600">No pending games.</p> : null}
-                      {pendingGames.map((game) => (
-                        <GameCard
-                          key={game.id}
-                          id={game.id}
-                          participants={game.participants}
-                          status={game.status}
-                          competitionIds={game.competitionIds}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-white p-4">
-                    <h3 className="text-base font-semibold">Latest validated games</h3>
-                    <div className="mt-2 space-y-2">
-                      {validatedGames.length === 0 ? (
-                        <p className="text-sm text-slate-600">No validated games yet.</p>
-                      ) : null}
-                      {validatedGames.map((game) => (
-                        <GameCard
-                          key={game.id}
-                          id={game.id}
-                          participants={game.participants}
-                          status={game.status}
-                          competitionIds={game.competitionIds}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </>
+            isAdmin ? (
+              <TournamentAdminSection
+                competition={competition}
+                activeRound={activeRound}
+                completedRounds={completedRounds}
+                scheduledRounds={scheduledRounds}
+                pendingGames={pendingGames}
+                validatedGames={validatedGames}
+                tableScores={tableScores}
+                setTableScores={setTableScores}
+                displayName={displayName}
+                onSubmitTableResult={onSubmitTableResult}
+                rounds={rounds}
+                roundsAsc={roundsAsc}
+                isSubmittingRound={isSubmittingRound}
+                isPrecomputedTournament={isPrecomputedTournament}
+                onCreateNextRound={onCreateNextRound}
+                tournamentTab={tournamentTab}
+                setTournamentTab={setTournamentTab}
+                tableResultsByGameId={tableResultsByGameId}
+              />
+            ) : (
+              <TournamentMemberSection
+                competition={competition}
+                activeRound={activeRound}
+                completedRounds={completedRounds}
+                scheduledRounds={scheduledRounds}
+                pendingGames={pendingGames}
+                validatedGames={validatedGames}
+                tableScores={tableScores}
+                setTableScores={setTableScores}
+                displayName={displayName}
+                onSubmitTableResult={onSubmitTableResult}
+              />
+            )
           ) : null}
 
           {isChampionship ? (
-            <>
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <h3 className="text-base font-semibold">Games pending approval</h3>
-                <div className="mt-2 space-y-2">
-                  {pendingGames.length === 0 ? <p className="text-sm text-slate-600">No pending games.</p> : null}
-                  {pendingGames.map((game) => (
-                    <GameCard
-                      key={game.id}
-                      id={game.id}
-                      participants={game.participants}
-                      status={game.status}
-                      competitionIds={game.competitionIds}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <h3 className="text-base font-semibold">Latest validated games</h3>
-                <div className="mt-2 space-y-2">
-                  {validatedGames.length === 0 ? <p className="text-sm text-slate-600">No validated games yet.</p> : null}
-                  {validatedGames.map((game) => (
-                    <GameCard
-                      key={game.id}
-                      id={game.id}
-                      participants={game.participants}
-                      status={game.status}
-                      competitionIds={game.competitionIds}
-                    />
-                  ))}
-                </div>
-              </div>
-            </>
+            <TournamentGamesPanels pendingGames={pendingGames} validatedGames={validatedGames} />
           ) : null}
         </div>
 
