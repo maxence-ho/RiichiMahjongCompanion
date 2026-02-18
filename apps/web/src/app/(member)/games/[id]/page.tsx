@@ -7,6 +7,7 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 import { ProposalDiff } from '@/components/ProposalDiff';
 import { RequireAuth } from '@/components/RequireAuth';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/Button';
 import { useAuthContext } from '@/features/auth/AuthProvider';
 import { submitGameEditProposal } from '@/lib/callables';
 import { db } from '@/lib/firebaseClient';
@@ -397,9 +398,9 @@ export default function GameDetailPage() {
                     </label>
                   ))}
                 </div>
-                <button className="mt-3 rounded bg-brand-700 px-3 py-2 text-sm font-medium text-white" onClick={submitEdit}>
-                  Proposer une edition
-                </button>
+                <Button className="mt-3" variant="primary" onClick={submitEdit}>
+                  Submit edit proposal
+                </Button>
               </div>
             ) : null}
 

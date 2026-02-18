@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 
 import { RequireAuth } from '@/components/RequireAuth';
+import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthContext } from '@/features/auth/AuthProvider';
 import { db } from '@/lib/firebaseClient';
 
@@ -35,10 +37,14 @@ export default function CompetitionsPage() {
 
   return (
     <RequireAuth>
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
+      <Card>
         <h2 className="text-lg font-semibold">Competitions</h2>
+        {items.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState title="No competitions in this club" />
+          </div>
+        ) : null}
         <ul className="mt-3 space-y-2 text-sm">
-          {items.length === 0 ? <li className="text-slate-600">No competitions in this club.</li> : null}
           {items.map((item) => (
             <li key={item.id} className="rounded border border-slate-100 p-2">
               <Link href={`/competitions/${item.id}`} className="font-medium">
@@ -50,7 +56,7 @@ export default function CompetitionsPage() {
             </li>
           ))}
         </ul>
-      </section>
+      </Card>
     </RequireAuth>
   );
 }

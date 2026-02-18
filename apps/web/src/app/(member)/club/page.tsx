@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 
 import { RequireAuth } from '@/components/RequireAuth';
+import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthContext } from '@/features/auth/AuthProvider';
 import { db } from '@/lib/firebaseClient';
 
@@ -82,7 +84,7 @@ export default function ClubPage() {
   return (
     <RequireAuth>
       <section className="grid gap-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <Card>
           <h2 className="text-lg font-semibold">Club Dashboard</h2>
           <p className="mt-1 text-sm text-slate-700">
             Active club: <strong>{profile?.activeClubId ?? 'none selected'}</strong>
@@ -111,7 +113,7 @@ export default function ClubPage() {
               Competitions
             </Link>
             <Link href="/inbox" className="rounded border border-slate-300 px-3 py-2 text-sm">
-              A valider ({pending})
+              Pending approvals ({pending})
             </Link>
             {isAdmin ? (
               <Link href="/admin" className="rounded bg-brand-700 px-3 py-2 text-sm font-medium text-white">
@@ -119,12 +121,16 @@ export default function ClubPage() {
               </Link>
             ) : null}
           </div>
-        </div>
+        </Card>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <h3 className="text-base font-semibold">Competitions actives</h3>
+        <Card>
+          <h3 className="text-base font-semibold">Active competitions</h3>
+          {competitions.length === 0 ? (
+            <div className="mt-3">
+              <EmptyState title="No active competition" />
+            </div>
+          ) : null}
           <ul className="mt-2 space-y-2 text-sm">
-            {competitions.length === 0 ? <li className="text-slate-600">No active competition.</li> : null}
             {competitions.map((competition) => (
               <li key={competition.id}>
                 <Link href={`/competitions/${competition.id}`} className="font-medium">
@@ -134,7 +140,7 @@ export default function ClubPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       </section>
     </RequireAuth>
   );

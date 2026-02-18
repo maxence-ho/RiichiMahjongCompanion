@@ -6,6 +6,9 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 
 import { RequireAuth } from '@/components/RequireAuth';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthContext } from '@/features/auth/AuthProvider';
 import { approveProposal, rejectProposal } from '@/lib/callables';
 import { registerPushToken } from '@/lib/firebaseMessaging';
@@ -248,19 +251,23 @@ export default function InboxPage() {
 
   return (
     <RequireAuth>
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
+      <Card>
         <h2 className="text-lg font-semibold">Inbox</h2>
         <p className="mt-1 text-sm text-slate-600">Validation requests for game creation and edit proposals.</p>
-        <button className="mt-3 rounded border border-slate-300 px-3 py-2 text-sm" onClick={onEnableNotifications}>
+        <Button className="mt-3" onClick={onEnableNotifications}>
           Enable browser notifications
-        </button>
+        </Button>
         {notificationMessage ? <p className="mt-2 text-sm text-slate-700">{notificationMessage}</p> : null}
         {error ? <p className="mt-2 text-sm text-rose-700">{error}</p> : null}
 
         {loading ? <p className="mt-3 text-sm text-slate-600">Loading...</p> : null}
 
         <ul className="mt-4 space-y-2">
-          {requests.length === 0 ? <li className="text-sm text-slate-600">No requests.</li> : null}
+          {requests.length === 0 ? (
+            <li>
+              <EmptyState title="No requests" />
+            </li>
+          ) : null}
           {requests.map((request) => (
             <li key={request.id} className="rounded border border-slate-200 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -277,24 +284,18 @@ export default function InboxPage() {
               </div>
               {request.status === 'pending' ? (
                 <div className="mt-2 flex gap-2">
-                  <button
-                    className="rounded bg-emerald-700 px-3 py-1 text-sm text-white"
-                    onClick={() => onApprove(request.proposalId)}
-                  >
+                  <Button variant="primary" size="sm" onClick={() => onApprove(request.proposalId)}>
                     Approve
-                  </button>
-                  <button
-                    className="rounded bg-rose-700 px-3 py-1 text-sm text-white"
-                    onClick={() => onReject(request.proposalId)}
-                  >
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => onReject(request.proposalId)}>
                     Reject
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </li>
           ))}
         </ul>
-      </section>
+      </Card>
     </RequireAuth>
   );
 }
