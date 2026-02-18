@@ -79,6 +79,74 @@ npm run build:functions
 `npm run dev:functions` now builds Functions automatically before start.
 It also resets and seeds emulator data before start so every session begins from the same state.
 
+## Docker
+
+### Local stack (admin-only seed)
+
+From repo root:
+
+```bash
+docker compose -f docker/compose.local.yml up --build
+```
+
+Or:
+
+```bash
+npm run docker:local
+```
+
+This starts:
+
+- Next.js web app on `http://localhost:3000`
+- Firebase emulators (UI/Auth/Firestore/Functions) on `4000/9099/8080/5001`
+- Deterministic admin-only seed data (single admin + single club)
+
+Default local admin credentials:
+
+- Email: `admin@mahjong.local`
+- Password: `Test1234!`
+
+You can override with env vars:
+
+- `LOCAL_ADMIN_EMAIL`
+- `LOCAL_ADMIN_PASSWORD`
+- `LOCAL_ADMIN_UID`
+- `LOCAL_ADMIN_CLUB_ID`
+- `LOCAL_ADMIN_CLUB_NAME`
+
+### Production web container
+
+Set production Firebase web env values before build:
+
+```bash
+export NEXT_PUBLIC_FIREBASE_API_KEY="..."
+export NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
+export NEXT_PUBLIC_FIREBASE_PROJECT_ID="..."
+export NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="..."
+export NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
+export NEXT_PUBLIC_FIREBASE_APP_ID="..."
+export NEXT_PUBLIC_FIREBASE_VAPID_KEY="..."
+```
+
+Then run:
+
+```bash
+docker compose -f docker/compose.prod.yml up --build -d
+```
+
+Or:
+
+```bash
+npm run docker:prod
+```
+
+Production compose builds/runs the web app container only.
+Firebase Functions deployment remains managed by Firebase CLI:
+
+```bash
+npm run deploy -w functions
+```
+
 ## Seed local data (Emulators)
 
 1. Start full local environment:
@@ -102,6 +170,18 @@ npm run seed:local:exec
 ```
 
 `seed:local:exec` exports snapshot data to `.emulator-seed`.
+
+Admin-only one-shot seed (for local Docker/minimal bootstrapping):
+
+```bash
+npm run seed:local:admin:exec
+```
+
+Admin-only emulator start:
+
+```bash
+npm run dev:functions:admin
+```
 
 This creates:
 

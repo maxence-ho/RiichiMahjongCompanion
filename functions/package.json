@@ -8,9 +8,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "serve": "npm run build && npx firebase-tools emulators:start --project demo-mahjong-club --import=../.emulator-seed --only functions,firestore,auth",
+    "serve:admin": "npm run build && npx firebase-tools emulators:start --project demo-mahjong-club --import=../.emulator-seed-admin --only functions,firestore,auth",
     "deploy": "npx firebase-tools deploy --only functions",
     "test": "vitest run",
-    "seed:local": "tsx local-dev/seedLocal.ts"
+    "seed:local": "tsx local-dev/seedLocal.ts",
+    "seed:local:admin": "tsx local-dev/seedAdminLocal.ts"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",

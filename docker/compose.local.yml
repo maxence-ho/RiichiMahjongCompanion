@@ -1,0 +1,47 @@
+services:
+  firebase:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: firebase-local
+    environment:
+      FIREBASE_PROJECT_ID: demo-mahjong-club
+      SEED_ON_START: ${SEED_ON_START:-true}
+      LOCAL_ADMIN_UID: ${LOCAL_ADMIN_UID:-u_admin}
+      LOCAL_ADMIN_EMAIL: ${LOCAL_ADMIN_EMAIL:-admin@mahjong.local}
+      LOCAL_ADMIN_PASSWORD: ${LOCAL_ADMIN_PASSWORD:-Test1234!}
+      LOCAL_ADMIN_DISPLAY_NAME: ${LOCAL_ADMIN_DISPLAY_NAME:-admin@mahjong.local}
+      LOCAL_ADMIN_CLUB_ID: ${LOCAL_ADMIN_CLUB_ID:-club_local_default}
+      LOCAL_ADMIN_CLUB_NAME: ${LOCAL_ADMIN_CLUB_NAME:-Mahjong Club Local}
+    ports:
+      - "4000:4000"
+      - "5001:5001"
+      - "8080:8080"
+      - "9099:9099"
+    volumes:
+      - firebase-local-seed:/app/.emulator-seed-admin
+
+  web:
+    depends_on:
+      - firebase
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: web-local
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_USE_FIREBASE_EMULATORS: "true"
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-mahjong-club
+      NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyD-local-emulator-key-00000000000000000
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: demo-mahjong-club.firebaseapp.com
+      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: localhost
+      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_PORT: "9099"
+      NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: localhost
+      NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT: "8080"
+      NEXT_PUBLIC_FUNCTIONS_EMULATOR_HOST: localhost
+      NEXT_PUBLIC_FUNCTIONS_EMULATOR_PORT: "5001"
+    ports:
+      - "3000:3000"
+
+volumes:
+  firebase-local-seed:
